@@ -1,4 +1,3 @@
-Flask
+flask
 yt-dlp
-flask-cors
 flask-limiter

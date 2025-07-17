@@ -1,43 +1,48 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from pytube import YouTube
+import yt_dlp
 import os
-import uuid
 
 app = Flask(__name__)
 
-# Rate limiter setup using default global limiter
-limiter = Limiter(get_remote_address, app=app, default_limits=["10 per hour"])
+# Initialize limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["10 per hour"]
+)
 
-@app.route("/")
-def home():
-    return "YouTube Video Downloader API"
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-@app.route("/download", methods=["POST"])
-@limiter.limit("5 per hour")
-def download_video():
-    data = request.json
-    if not data or "url" not in data:
-        return jsonify({"error": "No URL provided"}), 400
+@app.route('/download', methods=['POST'])
+@limiter.limit("5 per minute")
+def download():
+    url = request.form.get('url')
 
-    url = data["url"]
+    if not url:
+        return jsonify({'error': 'No URL provided'}), 400
+
     try:
-        yt = YouTube(url)
-        stream = yt.streams.filter(progressive=True, file_extension="mp4").order_by("resolution").desc().first()
+        # Set download options
+        ydl_opts = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
+            'noplaylist': True,
+        }
 
-        if not stream:
-            return jsonify({"error": "No downloadable streams found"}), 404
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=False)
+            filename = ydl.prepare_filename(info_dict)
+            ydl.download([url])
 
-        filename = f"{uuid.uuid4()}.mp4"
-        stream.download(filename=filename)
-
-        response = send_file(filename, as_attachment=True)
-        os.remove(filename)
-        return response
+        return jsonify({'message': 'Download completed', 'filename': filename})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    os.makedirs('downloads', exist_ok=True)
     app.run(debug=True)
