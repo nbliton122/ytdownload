@@ -80,7 +80,7 @@ def download_video():
 
 def download_worker(url, format_type, download_id):
     try:
-        # Create downloads directory if it doesn't exist
+        # Create downloads directory if it doesn\'t exist
         downloads_dir = os.path.join(os.getcwd(), "downloads")
         os.makedirs(downloads_dir, exist_ok=True)
         
@@ -88,6 +88,7 @@ def download_worker(url, format_type, download_id):
         ydl_opts = {
             "outtmpl": os.path.join(downloads_dir, "%(title)s.%(ext)s"),
             "progress_hooks": [ProgressHook(download_id)],
+            "no_playlist": True,
             # "cookiefile": COOKIES_FILE, # Removed for public video download only
         }
 
@@ -119,7 +120,7 @@ def download_worker(url, format_type, download_id):
         download_progress[download_id] = {
             "status": "error",
             "error": str(e),
-            "percent": "0%",
+            "percent": "0",
             "speed": "Failed"
         }
 
@@ -143,6 +144,7 @@ def get_video_info():
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
+            "no_playlist": True,
             # "cookiefile": COOKIES_FILE, # Removed for public video download only
         }
         
