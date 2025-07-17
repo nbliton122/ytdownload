@@ -13,27 +13,30 @@ CORS(app)  # Enable CORS for all routes
 # Global dictionary to store download progress
 download_progress = {}
 
+# Path to the cookies file
+COOKIES_FILE = os.path.join(os.getcwd(), 'Youtube_cookies .txt') # Note the space in the filename
+
 class ProgressHook:
     def __init__(self, download_id):
         self.download_id = download_id
     
     def __call__(self, d):
-        if d['status'] == 'downloading':
-            percent = d.get('_percent_str', 'N/A')
-            speed = d.get('_speed_str', 'N/A')
+        if d["status"] == "downloading":
+            percent = d.get("_percent_str", "N/A")
+            speed = d.get("_speed_str", "N/A")
             download_progress[self.download_id] = {
-                'status': 'downloading',
-                'percent': percent,
-                'speed': speed,
-                'filename': d.get('filename', 'Unknown')
+                "status": "downloading",
+                "percent": percent,
+                "speed": speed,
+                "filename": d.get("filename", "Unknown")
             }
-        elif d['status'] == 'finished':
+        elif d["status"] == "finished":
             download_progress[self.download_id] = {
-                'status': 'finished',
-                'percent': '100%',
-                'speed': 'Complete',
-                'filename': d.get('filename', 'Unknown'),
-                'filepath': d.get('filename', '')
+                "status": "finished",
+                "percent": "100%",
+                "speed": "Complete",
+                "filename": d.get("filename", "Unknown"),
+                "filepath": d.get("filename", "")
             }
 
 @app.route("/")
@@ -57,7 +60,7 @@ def download_video():
         download_progress[download_id] = {
             'status': 'starting',
             'percent': '0%',
-            'speed': 'Initializing...',
+            'speed': 'Initializing...', 
             'filename': 'Unknown'
         }
         
@@ -82,23 +85,22 @@ def download_worker(url, format_type, download_id):
         os.makedirs(downloads_dir, exist_ok=True)
         
         # Configure yt-dlp options
+        ydl_opts = {
+            'outtmpl': os.path.join(downloads_dir, '%(title)s.%(ext)s'),
+            'progress_hooks': [ProgressHook(download_id)],
+            'cookiefile': COOKIES_FILE, # Use cookies file
+        }
+
         if format_type == 'mp3':
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'outtmpl': os.path.join(downloads_dir, '%(title)s.%(ext)s'),
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-                'progress_hooks': [ProgressHook(download_id)],
-            }
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
         else:  # mp4
-            ydl_opts = {
-                'format': 'best[ext=mp4]/best',
-                'outtmpl': os.path.join(downloads_dir, '%(title)s.%(ext)s'),
-                'progress_hooks': [ProgressHook(download_id)],
-            }
+            ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+            ydl_opts['merge_output_format'] = 'mp4'
         
         # Download the video
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -141,6 +143,7 @@ def get_video_info():
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': COOKIES_FILE, # Use cookies file
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -188,4 +191,3 @@ def download_file(filename):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=True)
-
