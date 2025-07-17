@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>YouTube Downloader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      border: 2px solid #00d5ff;
+      padding: 20px;
+      background: #222;
+      max-width: 800px;
+      margin: 0 auto;
+      border-radius: 10px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #00d5ff;
+      margin-bottom: 30px;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .tabs button {
+      background: #00d5ff;
+      border: none;
+      padding: 10px 15px;
+      margin: 5px 2px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      color: black;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .tabs .active {
+      background: #0099cc;
+      color: white;
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    input, select {
+      padding: 12px;
+      margin-top: 5px;
+      width: 100%;
+      border: 1px solid #00d5ff;
+      background: #333;
+      color: white;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #00d5ff;
+      box-shadow: 0 0 5px #00d5ff;
+    }
+
+    .btns {
+      display: flex;
+      margin-top: 15px;
+      gap: 10px;
+    }
+
+    .btns button {
+      flex: 1;
+      padding: 12px;
+      background: #00d5ff;
+      border: none;
+      margin: 0;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      color: black;
+      font-size: 16px;
+    }
+
+    .btns button:hover {
+      background: #0099cc;
+    }
+
+    .btns button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      color: #999;
+    }
+
+    .video-info {
+      background: #333;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 5px;
+      border-left: 4px solid #00d5ff;
+      display: none;
+    }
+
+    .video-info h4 {
+      margin: 0 0 10px 0;
+      color: #00d5ff;
+    }
+
+    .progress-container {
+      margin: 15px 0;
+      display: none;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #333;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00d5ff, #0099cc);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      text-align: center;
+      margin: 5px 0;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
+      background: #333;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    table th, td {
+      border: 1px solid #555;
+      padding: 12px;
+      text-align: left;
+    }
+
+    table thead {
+      background: #00d5ff;
+      color: black;
+    }
+
+    table tbody tr:nth-child(even) {
+      background: #2a2a2a;
+    }
+
+    table tbody tr:hover {
+      background: #444;
+    }
+
+    .success {
+      color: #00ff00;
+    }
+
+    .error {
+      color: #ff4444;
+    }
+
+    .download-btn {
+      background: #00d5ff;
+      border: none;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 3px;
+      color: black;
+      font-weight: bold;
+    }
+
+    .download-btn:hover {
+      background: #0099cc;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status-success { background: #00ff00; }
+    .status-error { background: #ff4444; }
+    .status-downloading { background: #ffaa00; }
+
+    .alert {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .alert-success {
+      background: #004400;
+      border: 1px solid #00ff00;
+      color: #00ff00;
+    }
+
+    .alert-error {
+      background: #440000;
+      border: 1px solid #ff4444;
+      color: #ff4444;
+    }
+
+    @media (max-width: 600px) {
+      .tabs {
+        flex-direction: column;
+      }
+      
+      .tabs button {
+        margin: 2px 0;
+      }
+      
+      .btns {
+        flex-direction: column;
+      }
+      
+      table {
+        font-size: 14px;
+      }
+      
+      table th, td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>🎵 YouTube Video Downloader 🎬</h2>
+
+  <div class="tabs">
+    <button class="active" onclick="switchTab('audio')">🎵 Audio (MP3)</button>
+    <button onclick="switchTab('video')">🎬 Video (MP4)</button>
+  </div>
+
+  <div class="input-group">
+    <input type="text" id="urlInput" placeholder="YouTube Video URL (e.g., https://www.youtube.com/watch?v=...)">
+  </div>
+
+  <div class="input-group">
+    <select id="formatSelect">
+      <option value="mp3">MP3 Audio</option>
+      <option value="mp4">MP4 Video</option>
+    </select>
+  </div>
+
+  <div class="btns">
+    <button onclick="getVideoInfo()" id="infoBtn">📋 Get Info</button>
+    <button onclick="startDownload()" id="downloadBtn">⬇️ Download</button>
+    <button onclick="stopDownload()" id="stopBtn" disabled>⏹️ Stop</button>
+  </div>
+
+  <div class="alert alert-success" id="successAlert"></div>
+  <div class="alert alert-error" id="errorAlert"></div>
+
+  <div class="video-info" id="videoInfo">
+    <h4>📹 Video Information</h4>
+    <div id="videoDetails"></div>
+  </div>
+
+  <div class="progress-container" id="progressContainer">
+    <h4>📊 Download Progress</h4>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-text" id="progressText">Ready to download...</div>
+  </div>
+
+  <h3>📁 Download History</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Progress</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="historyTable">
+      <!-- History rows will go here -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let downloadCount = 1;
+  let currentDownloadId = null;
+  let progressInterval = null;
+  let currentFormat = 'mp3';
+
+  function switchTab(format) {
+    currentFormat = format;
+    const buttons = document.querySelectorAll('.tabs button');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (format === 'audio') {
+      buttons[0].classList.add('active');
+      document.getElementById('formatSelect').value = 'mp3';
+    } else {
+      buttons[1].classList.add('active');
+      document.getElementById('formatSelect').value = 'mp4';
+    }
+  }
+
+  function showAlert(message, type) {
+    const alertElement = document.getElementById(type + 'Alert');
+    alertElement.textContent = message;
+    alertElement.style.display = 'block';
+    
+    setTimeout(() => {
+      alertElement.style.display = 'none';
+    }, 5000);
+  }
+
+  function hideAlerts() {
+    document.getElementById('successAlert').style.display = 'none';
+    document.getElementById('errorAlert').style.display = 'none';
+  }
+
+  async function getVideoInfo() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+      showAlert('Please enter a YouTube URL', 'error');
+      return;
+    }
+
+    hideAlerts();
+    document.getElementById('infoBtn').disabled = true;
+    document.getElementById('infoBtn').textContent = '⏳ Loading...';
+
+    try {
+      const response = await fetch('/api/info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const videoInfo = document.getElementById('videoInfo');
+        const videoDetails = document.getElementById('videoDetails');
+        
+        const duration = Math.floor(data.duration / 60) + ':' + (data.duration % 60).toString().padStart(2, '0');
+        
+        videoDetails.innerHTML = `
+          <p><strong>Title:</strong> ${data.title}</p>
+          <p><strong>Duration:</strong> ${duration}</p>
+          <p><strong>Uploader:</strong> ${data.uploader}</p>
+          <p><strong>Views:</strong> ${data.view_count?.toLocaleString() || 'N/A'}</p>
+        `;
+        
+        videoInfo.style.display = 'block';
+        showAlert('Video information loaded successfully!', 'success');
+      } else {
+        showAlert('Error: ' + data.error, 'error');
+      }
+    } catch (error) {
+      showAlert('Network error: ' + error.message, 'error');
+    } finally {
+      document.getElementById('infoBtn').disabled = false;
+      document.getElementById('infoBtn').textContent = '📋 Get Info';
+    }
+  }
+
+  async function startDownload() {
+    const url = document.getElementById('urlInput').value.trim();
+    const format = document.getElementById('formatSelect').value;
+
+    if (!url) {
+      showAlert('Please enter a YouTube URL', 'error');
+      return;
+    }
+
+    hideAlerts();
+    
+    // Update UI
+    document.getElementById('downloadBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    document.getElementById('progressContainer').style.display = 'block';
+    
+    // Add to history table immediately
+    const table = document.getElementById('historyTable');
+    const row = document.createElement('tr');
+    row.id = 'download-row-' + downloadCount;
+    row.innerHTML = `
+      <td>${downloadCount}</td>
+      <td>Loading...</td>
+      <td><span class="status-indicator status-downloading"></span>Starting...</td>
+      <td>0%</td>
+      <td><button class="download-btn" disabled>⏳ Processing</button></td>
+    `;
+    table.appendChild(row);
+
+    try {
+      const response = await fetch('/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url, format: format })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        currentDownloadId = data.download_id;
+        showAlert('Download started successfully!', 'success');
+        
+        // Start monitoring progress
+        progressInterval = setInterval(() => {
+          checkProgress(currentDownloadId, downloadCount);
+        }, 1000);
+        
+        downloadCount++;
+      } else {
+        showAlert('Error: ' + data.error, 'error');
+        resetDownloadUI();
+      }
+    } catch (error) {
+      showAlert('Network error: ' + error.message, 'error');
+      resetDownloadUI();
+    }
+  }
+
+  async function checkProgress(downloadId, rowNumber) {
+    try {
+      const response = await fetch(`/api/progress/${downloadId}`);
+      const progress = await response.json();
+
+      // Update progress bar
+      const progressFill = document.getElementById('progressFill');
+      const progressText = document.getElementById('progressText');
+      
+      if (progress.status === 'downloading') {
+        const percent = progress.percent.replace('%', '');
+        progressFill.style.width = percent + '%';
+        progressText.textContent = `Downloading: ${progress.percent} - ${progress.speed}`;
+        
+        // Update table row
+        updateTableRow(rowNumber, progress.filename || 'Downloading...', 
+                      `<span class="status-indicator status-downloading"></span>Downloading`, 
+                      progress.percent);
+                      
+      } else if (progress.status === 'completed') {
+        progressFill.style.width = '100%';
+        progressText.textContent = 'Download completed successfully!';
+        
+        // Update table row
+        updateTableRow(rowNumber, progress.title || 'Download Complete', 
+                      `<span class="status-indicator status-success"></span>Completed`, 
+                      '100%', true);
+        
+        showAlert('Download completed successfully!', 'success');
+        clearInterval(progressInterval);
+        resetDownloadUI();
+        
+      } else if (progress.status === 'error') {
+        progressText.textContent = 'Download failed: ' + progress.error;
+        
+        // Update table row
+        updateTableRow(rowNumber, 'Download Failed', 
+                      `<span class="status-indicator status-error"></span>Error`, 
+                      '0%');
+        
+        showAlert('Download failed: ' + progress.error, 'error');
+        clearInterval(progressInterval);
+        resetDownloadUI();
+      }
+    } catch (error) {
+      console.error('Error checking progress:', error);
+    }
+  }
+
+  function updateTableRow(rowNumber, title, status, progress, completed = false) {
+    const row = document.getElementById('download-row-' + rowNumber);
+    if (row) {
+      const cells = row.children;
+      cells[1].textContent = title;
+      cells[2].innerHTML = status;
+      cells[3].textContent = progress;
+      
+      if (completed) {
+        cells[4].innerHTML = '<button class="download-btn" onclick="downloadFile(\'' + title + '\')">💾 Download</button>';
+      }
+    }
+  }
+
+  function stopDownload() {
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    currentDownloadId = null;
+    resetDownloadUI();
+    showAlert('Download stopped', 'error');
+  }
+
+  function resetDownloadUI() {
+    document.getElementById('downloadBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('progressContainer').style.display = 'none';
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressText').textContent = 'Ready to download...';
+  }
+
+  async function downloadFile(filename) {
+    try {
+      const response = await fetch(`/api/download-file/${encodeURIComponent(filename)}`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        showAlert('File not found or download failed', 'error');
+      }
+    } catch (error) {
+      showAlert('Download error: ' + error.message, 'error');
+    }
+  }
+
+  // Clear URL input after successful download start
+  function clearInput() {
+    document.getElementById('urlInput').value = '';
+  }
+
+  // Auto-hide alerts after 5 seconds
+  setInterval(() => {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+      if (alert.style.display === 'block') {
+        setTimeout(() => {
+          alert.style.display = 'none';
+        }, 5000);
+      }
+    });
+  }, 1000);
+</script>
+
+</body>
+</html>
+
