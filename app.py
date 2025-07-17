@@ -2,19 +2,24 @@ from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
 import os
-import tempfile
 import threading
 import uuid
 from datetime import datetime
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import time
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Rate limiter: 5 requests per minute per IP
+limiter = Limiter(app, key_func=get_remote_address)
+
 # Global dictionary to store download progress
 download_progress = {}
 
-# Path to the cookies file (removed space from filename)
-# COOKIES_FILE = os.path.join(os.getcwd(), 'Youtube_cookies.txt') # Removed for public video download only
+downloads_dir = os.path.join(os.getcwd(), "downloads")
+os.makedirs(downloads_dir, exist_ok=True)
 
 class ProgressHook:
     def __init__(self, download_id):
@@ -44,6 +49,7 @@ def index():
     return render_template("index.html")
 
 @app.route("/api/download", methods=["POST"])
+@limiter.limit("5 per minute")
 def download_video():
     try:
         data = request.get_json()
@@ -80,16 +86,29 @@ def download_video():
 
 def download_worker(url, format_type, download_id):
     try:
-        # Create downloads directory if it doesn\'t exist
-        downloads_dir = os.path.join(os.getcwd(), "downloads")
-        os.makedirs(downloads_dir, exist_ok=True)
+        # First check if video is public
+        ydl_opts_info = {
+            "quiet": True,
+            "no_warnings": True,
+            "no_playlist": True,
+            "ignoreerrors": True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+            info = ydl.extract_info(url, download=False)
+            availability = info.get("availability", "public")
+            if availability != "public":
+                download_progress[download_id] = {
+                    "status": "error",
+                    "error": "Video is not public or is restricted.",
+                    "percent": "0%",
+                    "speed": "N/A"
+                }
+                return
         
-        # Configure yt-dlp options
         ydl_opts = {
             "outtmpl": os.path.join(downloads_dir, "%(title)s.%(ext)s"),
             "progress_hooks": [ProgressHook(download_id)],
             "no_playlist": True,
-            # "cookiefile": COOKIES_FILE, # Removed for public video download only
         }
 
         if format_type == "mp3":
@@ -103,12 +122,10 @@ def download_worker(url, format_type, download_id):
             ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]"
             ydl_opts["merge_output_format"] = "mp4"
         
-        # Download the video
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            ydl.download([url])
             title = info.get("title", "Unknown")
             
-            # Update final status
             download_progress[download_id].update({
                 "status": "completed",
                 "title": title,
@@ -120,7 +137,7 @@ def download_worker(url, format_type, download_id):
         download_progress[download_id] = {
             "status": "error",
             "error": str(e),
-            "percent": "0",
+            "percent": "0%",
             "speed": "Failed"
         }
 
@@ -145,7 +162,6 @@ def get_video_info():
             "quiet": True,
             "no_warnings": True,
             "no_playlist": True,
-            # "cookiefile": COOKIES_FILE, # Removed for public video download only
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -165,7 +181,6 @@ def get_video_info():
 
 @app.route("/api/downloads")
 def list_downloads():
-    downloads_dir = os.path.join(os.getcwd(), "downloads")
     if not os.path.exists(downloads_dir):
         return jsonify({"downloads": []})
     
@@ -183,7 +198,6 @@ def list_downloads():
 
 @app.route("/api/download-file/<filename>")
 def download_file(filename):
-    downloads_dir = os.path.join(os.getcwd(), "downloads")
     filepath = os.path.join(downloads_dir, filename)
     
     if os.path.exists(filepath):
@@ -191,5 +205,19 @@ def download_file(filename):
     else:
         return jsonify({"error": "File not found"}), 404
 
+def cleanup_downloads():
+    while True:
+        now = time.time()
+        for f in os.listdir(downloads_dir):
+            filepath = os.path.join(downloads_dir, f)
+            if os.path.isfile(filepath):
+                if now - os.path.getmtime(filepath) > 3600:  # ১ ঘণ্টার বেশি পুরানো ফাইল
+                    os.remove(filepath)
+        time.sleep(3600)
+
 if __name__ == "__main__":
+    # Cleanup thread চালিয়ে দাও background-এ
+    cleanup_thread = threading.Thread(target=cleanup_downloads, daemon=True)
+    cleanup_thread.start()
+    
     app.run(host="0.0.0.0", port=10000, debug=True)
