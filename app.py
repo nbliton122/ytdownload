@@ -1,48 +1,42 @@
-from flask import Flask, render_template, request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-import yt_dlp
+from flask import Flask, request, jsonify
+import subprocess
 import os
+import uuid
 
 app = Flask(__name__)
 
-# Initialize limiter
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=["10 per hour"]
-)
+DOWNLOAD_FOLDER = "downloads"
+if not os.path.exists(DOWNLOAD_FOLDER):
+    os.makedirs(DOWNLOAD_FOLDER)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route("/", methods=["GET"])
+def home():
+    return "YouTube Downloader is running"
 
-@app.route('/download', methods=['POST'])
-@limiter.limit("5 per minute")
-def download():
-    url = request.form.get('url')
-
+@app.route("/download", methods=["POST"])
+def download_video():
+    data = request.get_json()
+    url = data.get("url")
+    
     if not url:
-        return jsonify({'error': 'No URL provided'}), 400
+        return jsonify({"error": "URL is required"}), 400
+
+    filename = f"{uuid.uuid4()}.mp4"
+    filepath = os.path.join(DOWNLOAD_FOLDER, filename)
 
     try:
-        # Set download options
-        ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': os.path.join('downloads', '%(title)s.%(ext)s'),
-            'noplaylist': True,
-        }
+        subprocess.run([
+            "yt-dlp",
+            "--no-playlist",
+            "-f", "best",
+            "-o", filepath,
+            url
+        ], check=True)
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(url, download=False)
-            filename = ydl.prepare_filename(info_dict)
-            ydl.download([url])
+        return jsonify({"message": "Download successful", "file": filename})
 
-        return jsonify({'message': 'Download completed', 'filename': filename})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": "Download failed", "details": str(e)}), 500
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    os.makedirs('downloads', exist_ok=True)
+if __name__ == "__main__":
     app.run(debug=True)
